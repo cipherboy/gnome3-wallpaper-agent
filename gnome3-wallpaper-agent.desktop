@@ -4,3 +4,4 @@ Name=GNOME3 Wallpaper Agent
 Exec=/home/cipherboy/GitHub/cipherboy/gnome3-wallpaper-agent/wallpaper-agent.py
 Terminal=false
 Type=Application
+Icon=image-x-generic-symbolic
