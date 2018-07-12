@@ -19,13 +19,8 @@ WALLPAPER_GIO_KEY = "picture-uri"
 LOCKSCREEN_GIO_PATH = "org.gnome.desktop.screensaver"
 LOCKSCREEN_GIO_KEY = "picture-uri"
 SEND_NOTIFICATIONS = True
-MIN_TIME = 1 * 60
-MAX_TIME = 5 * 60
-
-
-def has_updated_folder(last_read):
-    m_time = os.stat(WALLPAPER_PATH).st_mtime
-    return m_time > last_read
+MIN_TIME = 20
+MAX_TIME = 30
 
 
 def list_wallpapers(last_read=0):
@@ -44,7 +39,9 @@ def list_wallpapers(last_read=0):
 
 
 def send_notification(image_location, image_name):
-    Notify.Notification.new(image_location, image_name, "image-x-generic-symbolic").show()
+    notification = Notify.Notification.new(image_location, image_name, "image-x-generic-symbolic")
+    notification.show()
+    return notification
 
 
 def set_path(g_path, g_key, image_name):
@@ -57,18 +54,30 @@ def set_path(g_path, g_key, image_name):
     gso.set_string(g_key, file_uri)
 
 
-def set_wallpaper(image_name):
+def set_wallpaper(image_name, last_notification):
+    notification = None
     set_path(WALLPAPER_GIO_PATH, WALLPAPER_GIO_KEY, image_name)
+
     if SEND_NOTIFICATIONS:
-        send_notification("Wallpaper", image_name)
+        if last_notification:
+            last_notification.close()
+        notification = send_notification("Wallpaper", image_name)
+
     print("Set wallpaper: %s" % (image_name))
+    return notification
 
 
-def set_lockscreen(image_name):
+def set_lockscreen(image_name, last_notification):
+    notification = None
     set_path(LOCKSCREEN_GIO_PATH, LOCKSCREEN_GIO_KEY, image_name)
+
     if SEND_NOTIFICATIONS:
-        send_notification("Lock Screen", image_name)
+        if last_notification:
+            last_notification.close()
+        notification = send_notification("Lock Screen", image_name)
+
     print("Set lockscreen: %s" % (image_name))
+    return notification
 
 
 def get_random_wallpaper(wallpapers):
@@ -88,7 +97,6 @@ def get_wallpaper_choice(wallpapers, unseen_wallpapers):
         return get_random_wallpaper(wallpapers)
 
     num = random.randint(0, 20)
-    one_half = len(wallpapers)
     if num <= 11:
         return get_random_wallpaper(wallpapers[0:hl_wallpapers])
     elif num <= 17:
@@ -109,24 +117,26 @@ def main():
     update_wallpaper = True
 
     if SEND_NOTIFICATIONS:
+        wallpaper_notification = None
+        lockscreen_notification = None
         Notify.init('Wallpapers')
 
     try:
         while True:
-            if has_updated_folder(start_time):
-                new_time = time.time()
-                new_files = list_wallpapers(start_time)
+            new_time = time.time()
+            new_files = list_wallpapers(start_time)
+            if new_files:
                 start_time = new_time
                 wallpapers = new_files + wallpapers
                 unseen_wallpapers.update(set(new_files))
 
             if update_wallpaper:
                 wallpaper = get_wallpaper_choice(wallpapers, unseen_wallpapers)
-                set_wallpaper(wallpaper)
+                wallpaper_notification = set_wallpaper(wallpaper, wallpaper_notification)
                 update_wallpaper = False
             else:
                 wallpaper = get_random_wallpaper(wallpapers)
-                set_lockscreen(wallpaper)
+                lockscreen_notification = set_lockscreen(wallpaper, lockscreen_notification)
                 update_wallpaper = True
 
             time.sleep(random.randint(MIN_TIME, MAX_TIME))
