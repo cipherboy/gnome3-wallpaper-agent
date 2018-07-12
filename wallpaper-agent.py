@@ -19,8 +19,8 @@ WALLPAPER_GIO_KEY = "picture-uri"
 LOCKSCREEN_GIO_PATH = "org.gnome.desktop.screensaver"
 LOCKSCREEN_GIO_KEY = "picture-uri"
 SEND_NOTIFICATIONS = True
-MIN_TIME = 20
-MAX_TIME = 30
+MIN_TIME = 1 * 60
+MAX_TIME = 5 * 60
 
 
 def list_wallpapers(last_read=0):
