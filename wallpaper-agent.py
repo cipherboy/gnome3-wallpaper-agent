@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 
 import os
-import time
 import random
+import sys
+import time
 
 from gi.repository import Gio
 
@@ -48,18 +49,14 @@ def set_lockscreen(image_path):
 
 def main():
     while True:
-        try:
-            wallpapers = list_wallpapers()
-            lockscreen_index = 1
-            if len(wallpapers) == 0:
-                print("Please populate %s with at least one wallpaper!" %
-                      WALLPAPER_PATH, file=sys.stderr)
-                return
-            random.shuffle(wallpapers)
-            set_wallpaper(wallpapers[0])
-            set_lockscreen(wallpapers[-1])
-        except Exception as e:
-            print(e)
+        wallpapers = list_wallpapers()
+        if not wallpapers:
+            print("Please populate %s with at least one wallpaper!" %
+                  WALLPAPER_PATH, file=sys.stderr)
+            return
+        random.shuffle(wallpapers)
+        set_wallpaper(wallpapers[0])
+        set_lockscreen(wallpapers[-1])
 
         time.sleep(random.randint(MIN_TIME, MAX_TIME))
 
