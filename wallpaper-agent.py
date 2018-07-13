@@ -92,16 +92,19 @@ def get_wallpaper_choice(wallpapers, unseen_wallpapers):
 
     l_wallpapers = len(wallpapers)
     hl_wallpapers = l_wallpapers//2
-    tql_wallpapers = hl_wallpapers + hl_wallpapers//2
+    ql_wallpapers = hl_wallpapers//2
+    tql_wallpapers = hl_wallpapers + ql_wallpapers
     if l_wallpapers < 5:
         return get_random_wallpaper(wallpapers)
 
     num = random.randint(0, 20)
     if num <= 11:
-        return get_random_wallpaper(wallpapers[0:hl_wallpapers])
+        return get_random_wallpaper(wallpapers[0:ql_wallpapers])
     elif num <= 17:
-        return get_random_wallpaper(wallpapers[hl_wallpapers:tql_wallpapers])
-    return get_random_wallpaper(wallpapers[tql_wallpapers:])
+        return get_random_wallpaper(wallpapers[0:hl_wallpapers])
+    elif num <= 19:
+        return get_random_wallpaper(wallpapers[0:tql_wallpapers])
+    return get_random_wallpaper(wallpapers)
 
 
 def main():
