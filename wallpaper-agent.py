@@ -5,6 +5,7 @@ import random
 import sys
 import time
 
+from PIL import Image
 import gi
 gi.require_version('Notify', '0.7')
 from gi.repository import Notify
@@ -19,8 +20,28 @@ WALLPAPER_GIO_KEY = "picture-uri"
 LOCKSCREEN_GIO_PATH = "org.gnome.desktop.screensaver"
 LOCKSCREEN_GIO_KEY = "picture-uri"
 SEND_NOTIFICATIONS = True
-MIN_TIME = 1 * 60
-MAX_TIME = 5 * 60
+MIN_TIME = 5 * 60
+MAX_TIME = 25 * 60
+primary_orientation = "landscape"
+
+
+def filter_wallpapers(full_path, m_time, last_read):
+    _, extension = os.path.splitext(full_path)
+    image = Image.open(full_path)
+
+    is_valid_extension = extension.lower() in WALLPAPER_EXTS
+    is_new_mtime = m_time > last_read
+    is_correct_ratio = True
+
+    if primary_orientation == "landscape":
+        is_correct_ratio = image.width >= image.height
+    else:
+        is_correct_ratio = image.height >= image.width
+
+    image.close()
+
+    return is_valid_extension and is_new_mtime and is_correct_ratio
+
 
 
 def list_wallpapers(last_read=0):
@@ -29,9 +50,8 @@ def list_wallpapers(last_read=0):
     for candidate in os.listdir(WALLPAPER_PATH):
         full_path = os.path.abspath(os.path.join(WALLPAPER_PATH, candidate))
         m_time = os.stat(full_path).st_mtime
-        _, extension = os.path.splitext(candidate)
 
-        if extension.lower() in WALLPAPER_EXTS and m_time > last_read:
+        if filter_wallpapers(full_path, m_time, last_read):
             result.append((candidate, m_time))
 
     results = sorted(result, key=lambda x: x[1], reverse=True)
@@ -47,8 +67,6 @@ def send_notification(image_location, image_name):
 def set_path(g_path, g_key, image_name):
     image_path = os.path.abspath(os.path.join(WALLPAPER_PATH, image_name))
 
-    # Read image to cache it before setting it
-    open(image_path, 'rb').read()
     file_uri = "file://%s" % (image_path)
     gso = Gio.Settings.new(g_path)
     gso.set_string(g_key, file_uri)
