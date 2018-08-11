@@ -27,12 +27,14 @@ primary_orientation = "landscape"
 
 def filter_wallpapers(full_path, m_time, last_read):
     _, extension = os.path.splitext(full_path)
-    image = Image.open(full_path)
 
     is_valid_extension = extension.lower() in WALLPAPER_EXTS
     is_new_mtime = m_time > last_read
-    is_correct_ratio = True
+    if not is_valid_extension or not is_new_mtime:
+        return is_valid_extension and is_new_mtime
 
+    image = Image.open(full_path)
+    is_correct_ratio = True
     if primary_orientation == "landscape":
         is_correct_ratio = image.width >= image.height
     else:
@@ -40,7 +42,7 @@ def filter_wallpapers(full_path, m_time, last_read):
 
     image.close()
 
-    return is_valid_extension and is_new_mtime and is_correct_ratio
+    return is_correct_ratio
 
 
 
