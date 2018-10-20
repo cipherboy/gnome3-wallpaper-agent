@@ -1,0 +1,8 @@
+language: python
+
+jobs:
+  include:
+    python --version
+    pip install pylint
+    pylint --version
+    pylint wallpaper-agent.py
