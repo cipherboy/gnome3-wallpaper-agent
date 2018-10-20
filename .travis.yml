@@ -1,6 +1,0 @@
-language: python
-
-script:
-  - pip install pylint pgi Pillow
-  - pylint --version
-  - pylint wallpaper_agent.py
