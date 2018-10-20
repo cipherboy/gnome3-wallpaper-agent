@@ -37,6 +37,12 @@ PRIMARY_ORIENTATION = "landscape"
 
 
 def filter_wallpapers(full_path, m_time, last_read):
+    """
+    Given a path to an image, check to see if it is applicable to add to
+    the new wallpaper list; criteria include aspect ratio, last modified
+    time, and extension.
+    """
+
     _, extension = os.path.splitext(full_path)
 
     is_valid_extension = extension.lower() in WALLPAPER_EXTS
@@ -58,6 +64,11 @@ def filter_wallpapers(full_path, m_time, last_read):
 
 
 def list_wallpapers(last_read=0):
+    """
+    Return a list of all wallpapers added since last_read, sorted by last
+    modified time.
+    """
+
     result = []
 
     for candidate in os.listdir(WALLPAPER_PATH):
@@ -72,12 +83,20 @@ def list_wallpapers(last_read=0):
 
 
 def send_notification(image_location, image_name):
+    """
+    Send a notification about the new image.
+    """
+
     notification = Notify.Notification.new(image_location, image_name, "image-x-generic-symbolic")
     notification.show()
     return notification
 
 
 def set_path(g_path, g_key, image_name):
+    """
+    Set wallpaper via Gio introspection calls.
+    """
+
     image_path = os.path.abspath(os.path.join(WALLPAPER_PATH, image_name))
 
     file_uri = "file://%s" % (image_path)
@@ -86,6 +105,10 @@ def set_path(g_path, g_key, image_name):
 
 
 def set_wallpaper(image_name, last_notification):
+    """
+    Set the given image as a wallpaper photo.
+    """
+
     notification = None
     set_path(WALLPAPER_GIO_PATH, WALLPAPER_GIO_KEY, image_name)
 
@@ -99,6 +122,10 @@ def set_wallpaper(image_name, last_notification):
 
 
 def set_lockscreen(image_name, last_notification):
+    """
+    Set the given image as a lockscreen photo.
+    """
+
     notification = None
     set_path(LOCKSCREEN_GIO_PATH, LOCKSCREEN_GIO_KEY, image_name)
 
@@ -112,12 +139,21 @@ def set_lockscreen(image_name, last_notification):
 
 
 def get_random_wallpaper(wallpapers):
+    """
+    From a list of wallpapers, return a random item.
+    """
+
     new_array = wallpapers[:]
     random.shuffle(new_array)
     return new_array[0]
 
 
 def get_wallpaper_choice_internal(wallpapers, unseen_wallpapers):
+    """
+    Internal helper method for getting a wallpaper, prioritizing those which
+    are unseen.
+    """
+
     if unseen_wallpapers:
         return unseen_wallpapers.pop()
 
@@ -139,6 +175,11 @@ def get_wallpaper_choice_internal(wallpapers, unseen_wallpapers):
 
 
 def get_wallpaper_choice(wallpapers, unseen_wallpapers):
+    """
+    Return a new wallpaper prioritizing those which are unseen and ensuring
+    that the path is still valid.
+    """
+
     path = ""
     wallpaper = None
     while not os.path.exists(path):
@@ -149,6 +190,10 @@ def get_wallpaper_choice(wallpapers, unseen_wallpapers):
 
 
 def main():
+    """
+    Main loop for setting wallpapers.
+    """
+
     start_time = time.time()
     wallpapers = list_wallpapers()
 
