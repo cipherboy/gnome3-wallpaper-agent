@@ -20,8 +20,8 @@ WALLPAPER_GIO_KEY = "picture-uri"
 LOCKSCREEN_GIO_PATH = "org.gnome.desktop.screensaver"
 LOCKSCREEN_GIO_KEY = "picture-uri"
 SEND_NOTIFICATIONS = True
-MIN_TIME = 5 * 60
-MAX_TIME = 25 * 60
+MIN_TIME = 1 * 60
+MAX_TIME = 5 * 60
 primary_orientation = "landscape"
 
 
@@ -106,7 +106,7 @@ def get_random_wallpaper(wallpapers):
     return new_array[0]
 
 
-def get_wallpaper_choice(wallpapers, unseen_wallpapers):
+def get_wallpaper_choice_internal(wallpapers, unseen_wallpapers):
     if unseen_wallpapers:
         return unseen_wallpapers.pop()
 
@@ -125,6 +125,16 @@ def get_wallpaper_choice(wallpapers, unseen_wallpapers):
     elif num <= 19:
         return get_random_wallpaper(wallpapers[0:tql_wallpapers])
     return get_random_wallpaper(wallpapers)
+
+
+def get_wallpaper_choice(wallpapers, unseen_wallpapers):
+    path = ""
+    wallpaper = None
+    while not os.path.exists(path):
+        wallpaper = get_wallpaper_choice_internal(wallpapers, unseen_wallpapers)
+        path = os.path.join(WALLPAPER_PATH, wallpaper)
+
+    return wallpaper
 
 
 def main():
