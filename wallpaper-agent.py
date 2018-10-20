@@ -1,11 +1,22 @@
 #!/usr/bin/env python3
 
+"""
+GNOME3 Wallpaper Agent
+
+Monitors for changes in a wallpaper directory and randomly cycles wallpapers
+from found files.
+"""
+
+from __future__ import print_function
+
 import os
 import random
 import sys
 import time
 
 from PIL import Image
+
+# pylint: disable=wrong-import-position
 import gi
 gi.require_version('Notify', '0.7')
 from gi.repository import Notify
@@ -22,7 +33,7 @@ LOCKSCREEN_GIO_KEY = "picture-uri"
 SEND_NOTIFICATIONS = True
 MIN_TIME = 1 * 60
 MAX_TIME = 5 * 60
-primary_orientation = "landscape"
+PRIMARY_ORIENTATION = "landscape"
 
 
 def filter_wallpapers(full_path, m_time, last_read):
@@ -35,7 +46,7 @@ def filter_wallpapers(full_path, m_time, last_read):
 
     image = Image.open(full_path)
     is_correct_ratio = True
-    if primary_orientation == "landscape":
+    if PRIMARY_ORIENTATION == "landscape":
         is_correct_ratio = image.width >= image.height
     else:
         is_correct_ratio = image.height >= image.width
