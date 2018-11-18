@@ -14,6 +14,8 @@ import random
 import sys
 import time
 
+import dbus
+
 from PIL import Image
 
 # pylint: disable=wrong-import-position
@@ -30,10 +32,14 @@ WALLPAPER_GIO_PATH = "org.gnome.desktop.background"
 WALLPAPER_GIO_KEY = "picture-uri"
 LOCKSCREEN_GIO_PATH = "org.gnome.desktop.screensaver"
 LOCKSCREEN_GIO_KEY = "picture-uri"
+LOCKSCREEN_DBUS_NAME = "org.gnome.ScreenSaver"
+LOCKSCREEN_DBUS_PATH = "/org/gnome/ScreenSaver"
 SEND_NOTIFICATIONS = True
 MIN_TIME = 1 * 60
 MAX_TIME = 5 * 60
 PRIMARY_ORIENTATION = "landscape"
+
+SCREENSAVER_INTERFACE = None
 
 
 def filter_wallpapers(full_path, m_time, last_read):
@@ -86,6 +92,9 @@ def send_notification(image_location, image_name):
     """
     Send a notification about the new image.
     """
+
+    if bool(SCREENSAVER_INTERFACE.GetActive()):
+        return None
 
     notification = Notify.Notification.new(image_location, image_name, "image-x-generic-symbolic")
     notification.show()
@@ -194,6 +203,8 @@ def main():
     Main loop for setting wallpapers.
     """
 
+    global SCREENSAVER_INTERFACE
+
     start_time = time.time()
     wallpapers = list_wallpapers()
 
@@ -209,6 +220,12 @@ def main():
         wallpaper_notification = None
         lockscreen_notification = None
         Notify.init('Wallpapers')
+
+        session_bus = dbus.SessionBus()
+        screensaver_obj = session_bus.get_object(LOCKSCREEN_DBUS_NAME,
+                                                 LOCKSCREEN_DBUS_PATH)
+        SCREENSAVER_INTERFACE = dbus.Interface(screensaver_obj,
+                                               LOCKSCREEN_DBUS_NAME)
 
     try:
         while True:
