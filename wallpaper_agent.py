@@ -237,14 +237,9 @@ def main():
                 unseen_wallpapers.update(set(new_files))
 
             if not SEND_NOTIFICATIONS or not bool(SCREENSAVER_INTERFACE.GetActive()):
-                if update_wallpaper:
-                    wallpaper = get_wallpaper_choice(wallpapers, unseen_wallpapers)
-                    wallpaper_notification = set_wallpaper(wallpaper, wallpaper_notification)
-                    update_wallpaper = False
-                else:
-                    wallpaper = get_random_wallpaper(wallpapers)
-                    lockscreen_notification = set_lockscreen(wallpaper, lockscreen_notification)
-                    update_wallpaper = True
+                wallpaper = get_wallpaper_choice(wallpapers, unseen_wallpapers)
+                wallpaper_notification = set_wallpaper(wallpaper, wallpaper_notification)
+                update_wallpaper = False
 
             time.sleep(random.randint(MIN_TIME, MAX_TIME))
     except Exception as excpt:
