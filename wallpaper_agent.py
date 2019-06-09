@@ -69,7 +69,7 @@ def filter_wallpapers(full_path, m_time, last_read):
 
 
 
-def list_wallpapers(last_read=0):
+def list_wallpapers():
     """
     Return a list of all wallpapers added since last_read, sorted by last
     modified time.
@@ -78,14 +78,9 @@ def list_wallpapers(last_read=0):
     result = []
 
     for candidate in os.listdir(WALLPAPER_PATH):
-        full_path = os.path.abspath(os.path.join(WALLPAPER_PATH, candidate))
-        m_time = os.stat(full_path).st_mtime
+        result.append(candidate)
 
-        if filter_wallpapers(full_path, m_time, last_read):
-            result.append((candidate, m_time))
-
-    results = sorted(result, key=lambda x: x[1], reverse=True)
-    return list(map(lambda x: x[0], results))
+    return result
 
 
 def send_notification(image_location, image_name):
@@ -176,9 +171,9 @@ def get_wallpaper_choice_internal(wallpapers, unseen_wallpapers):
     num = random.randint(0, 20)
     if num <= 11:
         return get_random_wallpaper(wallpapers[0:ql_wallpapers])
-    elif num <= 17:
+    if num <= 17:
         return get_random_wallpaper(wallpapers[0:hl_wallpapers])
-    elif num <= 19:
+    if num <= 19:
         return get_random_wallpaper(wallpapers[0:tql_wallpapers])
     return get_random_wallpaper(wallpapers)
 
@@ -205,41 +200,53 @@ def main():
 
     global SCREENSAVER_INTERFACE
 
-    start_time = time.time()
     wallpapers = list_wallpapers()
-
     if not wallpapers:
         print("Please populate %s with at least one wallpaper!" %
               WALLPAPER_PATH, file=sys.stderr)
         return
 
-    unseen_wallpapers = set()
-    update_wallpaper = True
+    wallpaper_notification = None
+    lockscreen_notification = None
 
     if SEND_NOTIFICATIONS:
-        wallpaper_notification = None
-        lockscreen_notification = None
+        # Initialize notifications for this app
         Notify.init('Wallpapers')
 
+        # Check the screensaver state: when not active, we'll send a
+        # notification and update the wallpaper(s).
         session_bus = dbus.SessionBus()
         screensaver_obj = session_bus.get_object(LOCKSCREEN_DBUS_NAME,
                                                  LOCKSCREEN_DBUS_PATH)
         SCREENSAVER_INTERFACE = dbus.Interface(screensaver_obj,
                                                LOCKSCREEN_DBUS_NAME)
 
+    # Whether or not to update the lockscreen photo the next time we're
+    # unlocked.
+    update_lockscreen = True
+
     try:
         while True:
-            new_time = time.time()
-            new_files = list_wallpapers(start_time)
-            if new_files:
-                start_time = new_time
-                wallpapers = new_files + wallpapers
-                unseen_wallpapers.update(set(new_files))
+            wallpapers = list_wallpapers()
 
-            if not SEND_NOTIFICATIONS or not bool(SCREENSAVER_INTERFACE.GetActive()):
-                wallpaper = get_wallpaper_choice(wallpapers, unseen_wallpapers)
+            if not bool(SCREENSAVER_INTERFACE.GetActive()):
+                wallpaper = get_random_wallpaper(wallpapers)
                 wallpaper_notification = set_wallpaper(wallpaper, wallpaper_notification)
-                update_wallpaper = False
+
+                # When we've been locked long enough to trigger this loop,
+                # update_loockscreen will become True. Once unlocked, change
+                # the lockscreen wallpaper as well. Then quit modifying it
+                # until the next time.
+                #
+                # This lets us see new lockscreen photos and only trigger a
+                # notification when the computer is awake, allowing it to
+                # sleep longer.
+                if update_lockscreen:
+                    wallpaper = get_random_wallpaper(wallpapers)
+                    lockscreen_notification = set_lockscreen(wallpaper, lockscreen_notification)
+                    update_lockscreen = False
+            else:
+                update_lockscreen = True
 
             time.sleep(random.randint(MIN_TIME, MAX_TIME))
     except Exception as excpt:
