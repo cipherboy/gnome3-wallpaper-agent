@@ -21,9 +21,10 @@ from PIL import Image
 # pylint: disable=wrong-import-position
 import gi
 gi.require_version('Notify', '0.7')
+gi.require_version('Gdk', '3.0')
 from gi.repository import Notify
 from gi.repository import Gio
-
+from gi.repository import Gdk
 
 ## Configuration Options
 WALLPAPER_PATH = os.path.expanduser("~/Pictures/wallpapers")
@@ -37,36 +38,12 @@ LOCKSCREEN_DBUS_PATH = "/org/gnome/ScreenSaver"
 SEND_NOTIFICATIONS = True
 MIN_TIME = 1 * 60
 MAX_TIME = 5 * 60
-PRIMARY_ORIENTATION = "landscape"
+TEMP_DIRECTORY = os.path.expanduser("~/.cache/gnome3-wallpaper-agent")
 
 SCREENSAVER_INTERFACE = None
 
-
-def filter_wallpapers(full_path, m_time, last_read):
-    """
-    Given a path to an image, check to see if it is applicable to add to
-    the new wallpaper list; criteria include aspect ratio, last modified
-    time, and extension.
-    """
-
-    _, extension = os.path.splitext(full_path)
-
-    is_valid_extension = extension.lower() in WALLPAPER_EXTS
-    is_new_mtime = m_time > last_read
-    if not is_valid_extension or not is_new_mtime:
-        return is_valid_extension and is_new_mtime
-
-    image = Image.open(full_path)
-    is_correct_ratio = True
-    if PRIMARY_ORIENTATION == "landscape":
-        is_correct_ratio = image.width >= image.height
-    else:
-        is_correct_ratio = image.height >= image.width
-
-    image.close()
-
-    return is_correct_ratio
-
+GDK_SCREEN = Gdk.Screen.get_default()
+GDK_DISPLAY = GDK_SCREEN.get_display()
 
 
 def list_wallpapers():
@@ -83,6 +60,73 @@ def list_wallpapers():
     return result
 
 
+def get_screen_sizes():
+    results = []
+    for index in range(0, GDK_DISPLAY.get_n_monitors()):
+        monitor = GDK_DISPLAY.get_monitor(index)
+        geometry = monitor.get_geometry()
+        results.append((geometry.width, geometry.height))
+
+    return results
+
+
+def get_max_screen_size():
+    results = get_screen_sizes()
+    winner_area = 0
+    winner = None
+
+    for result in results:
+        area = result[0] * result[1]
+        if area > winner_area:
+            winner_area = area
+            winner = result
+
+    return winner
+
+
+def compute_ratio(image_width, image_height, screen_width, screen_height):
+    resized_to_height = int(image_width / image_height * screen_height)
+    resized_to_width = int(image_height / image_width * screen_width)
+
+    if image_width < screen_width or image_height < screen_height:
+        return image_width, image_height
+
+    if resized_to_height >= screen_width:
+        return resized_to_height, screen_height
+
+    return screen_width, resized_to_width
+
+
+def resize_all():
+    if not os.path.exists(TEMP_DIRECTORY):
+        os.makedirs(TEMP_DIRECTORY)
+
+    screen_width, screen_height = get_max_screen_size()
+
+    resized_mapping = dict()
+
+    for wallpaper in list_wallpapers():
+        full_path = os.path.join(WALLPAPER_PATH, wallpaper)
+        name, ext = os.path.splitext(wallpaper)
+        temp_name = f"{name}-{screen_width}x{screen_height}{ext}"
+        temp_path = os.path.join(TEMP_DIRECTORY, temp_name)
+
+        resized_mapping[wallpaper] = temp_path
+
+        if os.path.exists(temp_path):
+            continue
+
+        img = Image.open(full_path)
+        img_width, img_height = img.size
+
+        new_width, new_height = compute_ratio(img_width, img_height, screen_width, screen_height)
+
+        resized_img = img.resize((new_width, new_height), Image.BICUBIC)
+        resized_img.save(temp_path, quality=95)
+
+    return resized_mapping
+
+
 def send_notification(image_location, image_name):
     """
     Send a notification about the new image.
@@ -96,25 +140,25 @@ def send_notification(image_location, image_name):
     return notification
 
 
-def set_path(g_path, g_key, image_name):
+def set_path(g_path, g_key, image_name, mapping):
     """
     Set wallpaper via Gio introspection calls.
     """
 
-    image_path = os.path.abspath(os.path.join(WALLPAPER_PATH, image_name))
+    image_path = os.path.abspath(mapping[image_name])
 
     file_uri = "file://%s" % (image_path)
     gso = Gio.Settings.new(g_path)
     gso.set_string(g_key, file_uri)
 
 
-def set_wallpaper(image_name, last_notification):
+def set_wallpaper(image_name, last_notification, mapping):
     """
     Set the given image as a wallpaper photo.
     """
 
     notification = None
-    set_path(WALLPAPER_GIO_PATH, WALLPAPER_GIO_KEY, image_name)
+    set_path(WALLPAPER_GIO_PATH, WALLPAPER_GIO_KEY, image_name, mapping)
 
     if SEND_NOTIFICATIONS:
         if last_notification:
@@ -125,13 +169,13 @@ def set_wallpaper(image_name, last_notification):
     return notification
 
 
-def set_lockscreen(image_name, last_notification):
+def set_lockscreen(image_name, last_notification, mapping):
     """
     Set the given image as a lockscreen photo.
     """
 
     notification = None
-    set_path(LOCKSCREEN_GIO_PATH, LOCKSCREEN_GIO_KEY, image_name)
+    set_path(LOCKSCREEN_GIO_PATH, LOCKSCREEN_GIO_KEY, image_name, mapping)
 
     if SEND_NOTIFICATIONS:
         if last_notification:
@@ -150,47 +194,6 @@ def get_random_wallpaper(wallpapers):
     new_array = wallpapers[:]
     random.shuffle(new_array)
     return new_array[0]
-
-
-def get_wallpaper_choice_internal(wallpapers, unseen_wallpapers):
-    """
-    Internal helper method for getting a wallpaper, prioritizing those which
-    are unseen.
-    """
-
-    if unseen_wallpapers:
-        return unseen_wallpapers.pop()
-
-    l_wallpapers = len(wallpapers)
-    hl_wallpapers = l_wallpapers//2
-    ql_wallpapers = hl_wallpapers//2
-    tql_wallpapers = hl_wallpapers + ql_wallpapers
-    if l_wallpapers < 5:
-        return get_random_wallpaper(wallpapers)
-
-    num = random.randint(0, 20)
-    if num <= 11:
-        return get_random_wallpaper(wallpapers[0:ql_wallpapers])
-    if num <= 17:
-        return get_random_wallpaper(wallpapers[0:hl_wallpapers])
-    if num <= 19:
-        return get_random_wallpaper(wallpapers[0:tql_wallpapers])
-    return get_random_wallpaper(wallpapers)
-
-
-def get_wallpaper_choice(wallpapers, unseen_wallpapers):
-    """
-    Return a new wallpaper prioritizing those which are unseen and ensuring
-    that the path is still valid.
-    """
-
-    path = ""
-    wallpaper = None
-    while not os.path.exists(path):
-        wallpaper = get_wallpaper_choice_internal(wallpapers, unseen_wallpapers)
-        path = os.path.join(WALLPAPER_PATH, wallpaper)
-
-    return wallpaper
 
 
 def main():
@@ -225,13 +228,15 @@ def main():
     # unlocked.
     update_lockscreen = True
 
+    resized_mapping = resize_all()
+
     try:
         while True:
             wallpapers = list_wallpapers()
 
             if not bool(SCREENSAVER_INTERFACE.GetActive()):
                 wallpaper = get_random_wallpaper(wallpapers)
-                wallpaper_notification = set_wallpaper(wallpaper, wallpaper_notification)
+                wallpaper_notification = set_wallpaper(wallpaper, wallpaper_notification, resized_mapping)
 
                 # When we've been locked long enough to trigger this loop,
                 # update_loockscreen will become True. Once unlocked, change
@@ -243,7 +248,7 @@ def main():
                 # sleep longer.
                 if update_lockscreen:
                     wallpaper = get_random_wallpaper(wallpapers)
-                    lockscreen_notification = set_lockscreen(wallpaper, lockscreen_notification)
+                    lockscreen_notification = set_lockscreen(wallpaper, lockscreen_notification, resized_mapping)
                     update_lockscreen = False
             else:
                 update_lockscreen = True
