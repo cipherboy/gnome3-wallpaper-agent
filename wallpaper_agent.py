@@ -169,23 +169,6 @@ def set_wallpaper(image_name, last_notification, mapping):
     return notification
 
 
-def set_lockscreen(image_name, last_notification, mapping):
-    """
-    Set the given image as a lockscreen photo.
-    """
-
-    notification = None
-    set_path(LOCKSCREEN_GIO_PATH, LOCKSCREEN_GIO_KEY, image_name, mapping)
-
-    if SEND_NOTIFICATIONS:
-        if last_notification:
-            last_notification.close()
-        notification = send_notification("Lock Screen", image_name)
-
-    print("Set lockscreen: %s" % (image_name))
-    return notification
-
-
 def get_random_wallpaper(wallpapers):
     """
     From a list of wallpapers, return a random item.
@@ -210,7 +193,6 @@ def main():
         return
 
     wallpaper_notification = None
-    lockscreen_notification = None
 
     if SEND_NOTIFICATIONS:
         # Initialize notifications for this app
@@ -224,10 +206,6 @@ def main():
         SCREENSAVER_INTERFACE = dbus.Interface(screensaver_obj,
                                                LOCKSCREEN_DBUS_NAME)
 
-    # Whether or not to update the lockscreen photo the next time we're
-    # unlocked.
-    update_lockscreen = True
-
     resized_mapping = resize_all()
 
     try:
@@ -237,21 +215,6 @@ def main():
             if not bool(SCREENSAVER_INTERFACE.GetActive()):
                 wallpaper = get_random_wallpaper(wallpapers)
                 wallpaper_notification = set_wallpaper(wallpaper, wallpaper_notification, resized_mapping)
-
-                # When we've been locked long enough to trigger this loop,
-                # update_loockscreen will become True. Once unlocked, change
-                # the lockscreen wallpaper as well. Then quit modifying it
-                # until the next time.
-                #
-                # This lets us see new lockscreen photos and only trigger a
-                # notification when the computer is awake, allowing it to
-                # sleep longer.
-                if update_lockscreen:
-                    wallpaper = get_random_wallpaper(wallpapers)
-                    lockscreen_notification = set_lockscreen(wallpaper, lockscreen_notification, resized_mapping)
-                    update_lockscreen = False
-            else:
-                update_lockscreen = True
 
             time.sleep(random.randint(MIN_TIME, MAX_TIME))
     except Exception as excpt:
